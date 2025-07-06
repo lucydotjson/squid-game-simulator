@@ -1,1 +1,669 @@
-"Hello World" 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Squid Game Simulator - Polished with Audio & Hex Grid</title>
+<style>
+  /* Reset and base */
+  * {
+    box-sizing: border-box;
+  }
+  body, html {
+    margin: 0; padding: 0; height: 100%;
+    background: #111;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: white;
+    overflow: hidden;
+    user-select: none;
+  }
+  /* Text white with black outline */
+  .outlined-text {
+    color: white;
+    text-shadow:
+      -1px -1px 0 #000,
+      1px -1px 0 #000,
+      -1px 1px 0 #000,
+      1px 1px 0 #000;
+  }
+
+  /* Background subtle grid animation */
+/* === Moving Grid Background (Enhanced) === */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(0deg, #ffe0f7 1px, transparent 1px),
+    linear-gradient(90deg, #ffe0f7 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: moveGrid 30s linear infinite;
+  z-index: 0;
+  opacity: 0.25;
+}
+
+@keyframes moveGrid {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 800px 800px, 800px 800px; }
+}
+
+  /* Containers */
+  #startScreen, #gameScreen {
+    position: absolute; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: rgba(20,20,20,0.85);
+  }
+  #gameScreen {
+    display: none;
+  }
+
+  h1 {
+    font-weight: 900;
+    font-size: 3rem;
+    margin-bottom: 10px;
+    user-select:none;
+  }
+  button {
+    font-size: 1.25rem;
+    background: #ff3fa6;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 24px;
+    cursor: pointer;
+    color: white;
+    font-weight: 700;
+    transition: background-color 0.3s ease;
+    user-select:none;
+  }
+  button:disabled {
+    background: #666;
+    cursor: not-allowed;
+  }
+  button:hover:not(:disabled) {
+    background: #e22e91;
+  }
+
+  /* Input styles */
+  input[type=text] {
+    font-size: 1rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    margin-right: 10px;
+    width: 200px;
+    outline: none;
+    background: #222;
+    color: white;
+    text-shadow: none;
+  }
+  input[type=file] {
+    display: none;
+  }
+
+  label.file-label {
+    background: #ff3fa6;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    user-select:none;
+  }
+  label.file-label:hover {
+    background: #e22e91;
+  }
+
+  /* Hex grid container */
+  .hex-grid {
+    width: 100%;
+    max-width: 1000px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 20px;
+  }
+
+  /* Hex tile basics */
+  .hex {
+    position: relative;
+    width: 100px; /* Width of hex */
+    height: 115px; /* Height */
+    margin: 0 6px 10px;
+    cursor: default;
+    user-select:none;
+    transition: transform 0.3s ease, filter 0.4s ease;
+  }
+  .hex:hover {
+    transform: scale(1.05);
+    filter: brightness(1.2);
+  }
+  .hex.eliminated {
+    filter: grayscale(90%) brightness(0.5);
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  /* Hexagon shape with clip-path */
+  .hex-content {
+    width: 100px;
+    height: 115px;
+    background: #222;
+    clip-path: polygon(
+      50% 0%,
+      93% 25%,
+      93% 75%,
+      50% 100%,
+      7% 75%,
+      7% 25%
+    );
+    border: 2px solid #ff3fa6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 6px;
+    color: white;
+    text-align: center;
+  }
+
+  /* Avatar circle inside hex */
+  .hex-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #333;
+    margin-bottom: 8px;
+    object-fit: cover;
+    border: 2px solid #ff3fa6;
+    box-shadow: 0 0 5px #ff3fa6;
+  }
+
+  /* Fallback initials if no image */
+  .hex-initials {
+    font-weight: 900;
+    font-size: 1.8rem;
+    color: #ff3fa6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px solid #ff3fa6;
+    box-shadow: 0 0 8px #ff3fa6;
+    margin-bottom: 8px;
+    user-select:none;
+  }
+
+  /* Character name in hex */
+  .hex-name {
+    font-weight: 700;
+    font-size: 1rem;
+    line-height: 1.2em;
+    color: white;
+    text-shadow:
+      -1px -1px 1px black,
+      1px -1px 1px black,
+      -1px 1px 1px black,
+      1px 1px 1px black;
+    user-select:none;
+  }
+
+  /* For offset rows in hex grid (stagger) */
+  .hex-row-offset {
+    margin-left: 53px; /* half hex width plus margin */
+  }
+
+  /* Input area on start screen */
+  #inputArea {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* Game Log */
+  #gameLog {
+    margin-top: 20px;
+    padding: 12px;
+    background: rgba(10,10,10,0.8);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 1000px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 1.1rem;
+    line-height: 1.4;
+    box-shadow: 0 0 12px #ff3fa6aa;
+  }
+  #gameLog p {
+    margin: 6px 0;
+    opacity: 0;
+    animation: fadeInText 0.6s forwards;
+    user-select:none;
+  }
+  @keyframes fadeInText {
+    to {opacity: 1;}
+  }
+
+  /* Prize money display */
+  #prizeMoneyDisplay {
+    margin-top: 20px;
+    font-weight: 900;
+    font-size: 1.5rem;
+    color: white;
+    text-shadow:
+      -2px -2px 2px black,
+      2px -2px 2px black,
+      -2px 2px 2px black,
+      2px 2px 2px black;
+    user-select:none;
+  }
+</style>
+</head>
+<body>
+
+<!-- START SCREEN -->
+<div id="startScreen">
+  <h1 class="outlined-text">Squid Game Simulator</h1>
+  <div id="inputArea">
+    <input id="characterNameInput" type="text" placeholder="Character Name" />
+    <label for="characterImageInput" class="file-label">Upload Avatar</label>
+    <input id="characterImageInput" type="file" accept="image/*" />
+    <button id="addCharacterBtn">Add Character</button>
+  </div>
+  <div id="characterGrid" class="hex-grid" aria-label="Character selection grid"></div>
+  <button id="startGameBtn" disabled>Start Game</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen">
+  <h1 class="outlined-text">Squid Game Simulator</h1>
+  <div id="characterGridGame" class="hex-grid" aria-label="Active players grid"></div>
+  <div id="prizeMoneyDisplay" class="outlined-text">Total Prize Money: $0</div>
+  <div id="gameLog" role="log" aria-live="polite" aria-atomic="false"></div>
+</div>
+
+<!-- Audio Elements -->
+<audio id="audioStart" src="https://cdn.pixabay.com/download/audio/2022/03/23/audio_16cbd9a4cd.mp3?filename=short-game-start-6341.mp3" preload="auto"></audio>
+<audio id="audioElimination" src="https://cdn.pixabay.com/download/audio/2021/09/09/audio_2f46b2a1e2.mp3?filename=game-over-arcade-6435.mp3" preload="auto"></audio>
+<audio id="audioGameEnd" src="https://cdn.pixabay.com/download/audio/2022/04/27/audio_bce6e0ea99.mp3?filename=game-victory-fanfare-6345.mp3" preload="auto"></audio>
+
+<script>
+  (() => {
+    // DOM Elements
+    const characterNameInput = document.getElementById('characterNameInput');
+    const characterImageInput = document.getElementById('characterImageInput');
+    const addCharacterBtn = document.getElementById('addCharacterBtn');
+    const startGameBtn = document.getElementById('startGameBtn');
+    const characterGrid = document.getElementById('characterGrid');
+    const characterGridGame = document.getElementById('characterGridGame');
+    const startScreen = document.getElementById('startScreen');
+    const gameScreen = document.getElementById('gameScreen');
+    const gameLog = document.getElementById('gameLog');
+    const prizeMoneyDisplay = document.getElementById('prizeMoneyDisplay');
+    // Audio elements
+    const audioStart = document.getElementById('audioStart');
+    const audioElimination = document.getElementById('audioElimination');
+    const audioGameEnd = document.getElementById('audioGameEnd');
+
+    // Data storage
+    let characters = [];
+    let eliminated = new Set();
+
+    // Track created object URLs for cleanup
+    const objectURLs = [];
+
+    // Utility
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    // Random int inclusive
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    // Random choice
+    function randomChoice(arr) {
+      return arr[randInt(0, arr.length -1)];
+    }
+
+    // Add character
+    addCharacterBtn.onclick = () => {
+      // Sanitize character name to prevent XSS
+      const name = characterNameInput.value.trim().replace(/[<>&"'`]/g, '');
+      if(!name) return alert('Please enter a character name.');
+      // Check duplicate name
+      if(characters.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+        alert('Character name already exists.');
+        return;
+      }
+      const imgFile = characterImageInput.files[0];
+      let imgURL = '';
+      if(imgFile) {
+        // Validate image type
+        if(!imgFile.type.startsWith('image/')) {
+          alert('Only image files are allowed.');
+          return;
+        }
+        imgURL = URL.createObjectURL(imgFile);
+        objectURLs.push(imgURL);
+      }
+      characters.push({name, img: imgURL});
+      characterNameInput.value = '';
+      characterImageInput.value = '';
+      renderCharacterGrid();
+      checkStartButton();
+    };
+
+    // Render hex grid for start screen
+    function renderCharacterGrid() {
+      characterGrid.innerHTML = '';
+      // We'll arrange hex tiles in rows, offset every other row
+      for(let i = 0; i < characters.length; i++) {
+        const char = characters[i];
+        const hex = document.createElement('div');
+        hex.className = 'hex';
+        // Calculate row and col for offset
+        // 6 hex per row approx
+        const perRow = 6;
+        const row = Math.floor(i / perRow);
+        if(row % 2 === 1) hex.style.marginLeft = '53px'; // half hex + margin for offset
+
+        const hexContent = document.createElement('div');
+        hexContent.className = 'hex-content';
+
+        // Avatar or initials
+        if(char.img) {
+          const img = document.createElement('img');
+          img.className = 'hex-avatar';
+          img.src = char.img;
+          img.alt = `${char.name} avatar`;
+          hexContent.appendChild(img);
+        } else {
+          const initials = getInitials(char.name);
+          const fallback = document.createElement('div');
+          fallback.className = 'hex-initials';
+          fallback.textContent = initials;
+          hexContent.appendChild(fallback);
+        }
+        const span = document.createElement('div');
+        span.className = 'hex-name';
+        span.textContent = char.name;
+        hexContent.appendChild(span);
+
+        hex.appendChild(hexContent);
+        characterGrid.appendChild(hex);
+      }
+    }
+
+    // Render hex grid for game screen with elimination style
+    function renderCharacterGridGame() {
+      characterGridGame.innerHTML = '';
+      for(let i = 0; i < characters.length; i++) {
+        const char = characters[i];
+        const hex = document.createElement('div');
+        hex.className = 'hex';
+        const perRow = 6;
+        const row = Math.floor(i / perRow);
+        if(row % 2 === 1) hex.style.marginLeft = '53px';
+
+        if(eliminated.has(char.name)) {
+          hex.classList.add('eliminated');
+          hex.style.pointerEvents = 'none';
+        }
+        const hexContent = document.createElement('div');
+        hexContent.className = 'hex-content';
+
+        if(char.img) {
+          const img = document.createElement('img');
+          img.className = 'hex-avatar';
+          img.src = char.img;
+          img.alt = `${char.name} avatar`;
+          hexContent.appendChild(img);
+        } else {
+          const initials = getInitials(char.name);
+          const fallback = document.createElement('div');
+          fallback.className = 'hex-initials';
+          fallback.textContent = initials;
+          hexContent.appendChild(fallback);
+        }
+
+        const span = document.createElement('div');
+        span.className = 'hex-name';
+        span.textContent = char.name;
+        hexContent.appendChild(span);
+
+        hex.appendChild(hexContent);
+        characterGridGame.appendChild(hex);
+      }
+    }
+
+    // Initials helper
+    function getInitials(name) {
+      const parts = name.split(' ').filter(p => p.length > 0);
+      if(parts.length === 1) return parts[0][0].toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
+    // Check start button enabled (min 3 characters)
+    function checkStartButton() {
+      startGameBtn.disabled = characters.length < 3;
+    }
+
+    // Fade in log line with delay
+    async function addLogLine(text, delay = 700) {
+      const p = document.createElement('p');
+      p.textContent = text;
+      gameLog.appendChild(p);
+      gameLog.scrollTop = gameLog.scrollHeight;
+      await sleep(delay);
+    }
+
+    // Tween number count for prize money
+    async function tweenNumber(start, end, duration = 1500) {
+      const steps = 30;
+      let current = start;
+      const stepTime = duration / steps;
+      const increment = (end - start) / steps;
+      for(let i=0; i<=steps; i++) {
+        prizeMoneyDisplay.textContent = `Total Prize Money: $${Math.floor(current)}`;
+        current += increment;
+        await sleep(stepTime);
+      }
+      prizeMoneyDisplay.textContent = `Total Prize Money: $${Math.floor(end)}`;
+    }
+
+    // Play sound helper (with catch for mobile restrictions)
+    function playSound(audioElem) {
+      audioElem.currentTime = 0;
+      const playPromise = audioElem.play();
+      if(playPromise !== undefined) {
+        playPromise.catch(() => {}); // ignore errors like user not interacted
+      }
+    }
+
+    // --- Mini Games and Phases ---
+
+    async function nightPhase(activePlayers) {
+      await addLogLine(`Night falls. Players can talk or attack...`, 1200);
+      for(const player of [...activePlayers]) {
+        if(Math.random() < 0.4) {
+          const phrases = [
+            "shares a secret about the game.",
+            "plots a strategy.",
+            "tries to form an alliance.",
+            "whispers about a trap ahead.",
+            "reflects on their past.",
+            "laughs nervously."
+          ];
+          const phrase = randomChoice(phrases);
+          await addLogLine(`${player} ${phrase}`, 600);
+        } else {
+          if(Math.random() < 0.15 && activePlayers.length > 1) {
+            const targets = activePlayers.filter(p => p !== player);
+            if(targets.length === 0) continue;
+            const target = randomChoice(targets);
+            await addLogLine(`${player} attacks ${target}!`, 1000);
+            await sleep(500);
+            return target; // Return eliminated player
+          }
+        }
+      }
+      await addLogLine(`The night ends with no deaths...`, 1000);
+      return null; // No elimination
+    }
+
+    async function redLightGreenLight(activePlayers) {
+      await addLogLine("Red Light, Green Light begins!", 1500);
+      // Half chance each turn to move safely, or eliminated
+      const eliminatedThisRound = [];
+      for(const player of [...activePlayers]) {
+        if(Math.random() < 0.3) {
+          eliminatedThisRound.push(player);
+          await addLogLine(`${player} was caught moving and eliminated!`, 900);
+        } else {
+          await addLogLine(`${player} stands still safely.`, 500);
+        }
+      }
+      if(eliminatedThisRound.length > 0) {
+        return eliminatedThisRound[0]; // Eliminate first caught for single elimination
+      }
+      await addLogLine("All players moved safely!", 800);
+      return null;
+    }
+
+    async function tugOfWar(activePlayers) {
+      await addLogLine("Tug of War starts!", 1500);
+      // Random team split
+      const shuffled = activePlayers.slice().sort(() => Math.random() - 0.5);
+      const mid = Math.floor(shuffled.length / 2);
+      const teamA = shuffled.slice(0, mid);
+      const teamB = shuffled.slice(mid);
+      await addLogLine(`Team A: ${teamA.join(', ')}`, 1200);
+      await addLogLine(`Team B: ${teamB.join(', ')}`, 1200);
+      // Random win by chance influenced by team size
+      const winTeam = (teamA.length >= teamB.length) ? teamA : teamB;
+      const loseTeam = (winTeam === teamA) ? teamB : teamA;
+
+      await addLogLine(`Team ${winTeam === teamA ? 'A' : 'B'} wins!`, 1300);
+
+      // Eliminate all losing team players
+      const eliminatedPlayer = randomChoice(loseTeam);
+      await addLogLine(`${eliminatedPlayer} from losing team is eliminated!`, 1300);
+      return eliminatedPlayer;
+    }
+
+    async function marbles(activePlayers) {
+      await addLogLine("Marbles game begins!", 1500);
+      if(activePlayers.length < 2) return null;
+
+      // Random pairs battle
+      const pairs = [];
+      const shuffled = activePlayers.slice().sort(() => Math.random() - 0.5);
+      while(shuffled.length > 1) {
+        pairs.push([shuffled.pop(), shuffled.pop()]);
+      }
+      // One player without pair auto-advances
+      let eliminatedPlayer = null;
+      for(const [p1, p2] of pairs) {
+        await addLogLine(`${p1} vs ${p2}`, 1200);
+        // Random winner
+        const winner = randomChoice([p1, p2]);
+        const loser = (winner === p1) ? p2 : p1;
+        await addLogLine(`${winner} wins, ${loser} eliminated!`, 1500);
+        eliminatedPlayer = loser;
+        break; // Only one elimination per round for pacing
+      }
+      if(!eliminatedPlayer) {
+        await addLogLine("No one eliminated in Marbles.", 1000);
+      }
+      return eliminatedPlayer;
+    }
+
+    async function glassBridge(activePlayers) {
+      await addLogLine("Glass Bridge challenge starts!", 1500);
+      // Random player falls and eliminated, or no one if lucky
+      if(activePlayers.length <= 1) return null;
+      const chanceFall = 0.3;
+      if(Math.random() < chanceFall) {
+        const victim = randomChoice(activePlayers);
+        await addLogLine(`${victim} falls through glass and is eliminated!`, 1500);
+        return victim;
+      }
+      await addLogLine("Everyone crosses safely!", 1200);
+      return null;
+    }
+
+    // Mini game list and prize multiplier
+    const miniGames = [
+      {name: 'Night Phase', fn: nightPhase, multiplier: 1.1},
+      {name: 'Red Light Green Light', fn: redLightGreenLight, multiplier: 1.3},
+      {name: 'Tug of War', fn: tugOfWar, multiplier: 1.5},
+      {name: 'Marbles', fn: marbles, multiplier: 2},
+      {name: 'Glass Bridge', fn: glassBridge, multiplier: 2.5},
+    ];
+
+    // Start game
+    startGameBtn.onclick = async () => {
+      startScreen.style.display = 'none';
+      gameScreen.style.display = 'flex';
+      eliminated = new Set();
+      renderCharacterGridGame();
+      gameLog.innerHTML = '';
+      let prizeMoney = 1000 * characters.length;
+      await tweenNumber(0, prizeMoney);
+      playSound(audioStart);
+      await addLogLine(`Game started with ${characters.length} players! Prize Money: $${prizeMoney}`, 1500);
+
+      let activePlayers = characters.map(c => c.name);
+
+      while(activePlayers.length > 1) {
+        const game = randomChoice(miniGames);
+        await addLogLine(`Mini Game: ${game.name}`, 1500);
+        const eliminatedPlayer = await game.fn(activePlayers);
+        if(eliminatedPlayer) {
+          eliminated.add(eliminatedPlayer);
+          activePlayers = activePlayers.filter(p => p !== eliminatedPlayer);
+          await addLogLine(`${eliminatedPlayer} has been eliminated!`, 1300);
+          playSound(audioElimination);
+          renderCharacterGridGame();
+          // Update prize money
+          prizeMoney *= game.multiplier;
+          await tweenNumber(prizeMoney / game.multiplier, prizeMoney);
+        }
+        if(activePlayers.length <= 1) break;
+        await sleep(1200);
+      }
+
+      // End game
+      if(activePlayers.length === 1) {
+        await addLogLine(`${activePlayers[0]} is the winner!`, 1800);
+      } else {
+        await addLogLine(`No winner could be determined...`, 1500);
+      }
+      playSound(audioGameEnd);
+
+      // Show restart
+      const restartBtn = document.createElement('button');
+      restartBtn.textContent = 'Restart Game';
+      restartBtn.style.marginTop = '20px';
+      restartBtn.onclick = () => {
+        objectURLs.forEach(url => URL.revokeObjectURL(url));
+        location.reload();
+      };
+      gameLog.appendChild(restartBtn);
+    };
+
+    // Initial render and checks
+    renderCharacterGrid();
+    checkStartButton();
+
+  })();
+</script>
+
+</body>
+</html>
