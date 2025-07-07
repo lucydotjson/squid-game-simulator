@@ -411,29 +411,71 @@
   const audioGameEnd = document.getElementById('audioGameEnd');
 
     const autoFillBtn = document.getElementById('autoFillBtn');
-  autoFillBtn.onclick = async () => {
-    autoFillBtn.disabled = true;
-    autoFillBtn.textContent = "Loading...";
-    // We'll use Wikipedia's API for fruits and objects
-    // Fruits: https://en.wikipedia.org/wiki/List_of_culinary_fruits
-    // Objects: https://en.wikipedia.org/wiki/List_of_household_items
-    // We'll fetch a random selection from both
+// Place this inside your main script, replacing your current autoFillBtn.onclick handler
+/* Replace the FRUITS and OBJECTS arrays in your script with the following: */
 
-    // Helper to fetch random titles from a category
-    async function fetchRandomWikiTitles(category, count) {
-      // Use Wikipedia API to get category members
-      const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(category)}&cmlimit=100&format=json&origin=*`;
-      const resp = await fetch(url);
-      const data = await resp.json();
-      const members = data.query.categorymembers.filter(m => !m.title.startsWith('Category:'));
-      // Pick random
-      const shuffled = members.sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, count).map(m => m.title);
-    }
+const FRUITS = [
+  // Fruits
+  "Apple", "Banana", "Orange", "Strawberry", "Pineapple", "Mango", "Watermelon", "Grape", "Peach", "Cherry", "Lemon", "Blueberry",
+  "Raspberry", "Blackberry", "Kiwi", "Papaya", "Guava", "Lychee", "Coconut", "Apricot", "Plum", "Pear", "Fig", "Pomegranate",
+  "Cantaloupe", "Honeydew", "Dragonfruit", "Passionfruit", "Starfruit", "Durian", "Jackfruit", "Tangerine", "Cranberry", "Gooseberry",
+  "Mulberry", "Persimmon", "Quince", "Soursop", "Longan", "Rambutan", "Date", "Currant", "Elderberry", "Boysenberry", "Salak", "Tamarind"
+];
 
-    // Helper to get image for a Wikipedia page
-    async function fetchWikiImage(title) {
-      const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=200&origin=*`;
+const OBJECTS = [
+  // Household objects
+  "Chair", "Table", "Lamp", "Bicycle", "Umbrella", "Backpack", "Clock", "Pillow", "Book", "Spoon", "Glasses", "Camera",
+  "Toaster", "Microwave", "Television", "Laptop", "Smartphone", "Headphones", "Mug", "Bottle", "Pen", "Pencil", "Notebook", "Scissors",
+  "Stapler", "Ruler", "Calculator", "Remote", "Sofa", "Bed", "Blanket", "Mirror", "Toothbrush", "Comb", "Shoe", "Sock", "Hat", "Glove",
+  "Wallet", "Key", "Door", "Window", "Curtain", "Fan", "Heater", "Drill", "Hammer", "Screwdriver", "Wrench", "Plunger", "Broom", "Mop"
+];
+
+// Memes & Internet icons
+const MEMES = [
+  "Doge", "Pepe the Frog", "Shrek", "Big Chungus", "Cheems", "Grumpy Cat", "Nyan Cat", "Trollface", "Distracted Boyfriend", "Woman Yelling at Cat",
+  "Hide the Pain Harold", "Success Kid", "Bad Luck Brian", "Epic Sax Guy", "Rick Astley", "Giga Chad", "Among Us Crewmate", "Swole Doge vs Cheems",
+  "Is This a Pigeon?", "Surprised Pikachu", "Galaxy Brain", "Mocking SpongeBob", "Arthur Fist", "Y U NO Guy", "Kermit Sipping Tea"
+];
+
+
+// Celebrities (for fun)
+const CELEBRITIES = [
+  "Taylor Swift", "Elon Musk", "Barack Obama", "Oprah Winfrey", "Dwayne Johnson", "Beyoncé", "Keanu Reeves", "Rihanna",
+  "Tom Hanks", "Lady Gaga", "Bill Gates", "Ariana Grande", "Leonardo DiCaprio", "Zendaya", "Will Smith", "Emma Watson",
+  "Cristiano Ronaldo", "Lionel Messi", "Selena Gomez", "Kim Kardashian", "PewDiePie", "MrBeast", "Markiplier", "Ninja", "Pokimane"
+];
+
+// Combine all for autofill
+const ALL_AUTOFILL = [
+  ...FRUITS,
+  ...OBJECTS,
+  ...MEMES,
+  ...CELEBRITIES
+];
+
+autoFillBtn.onclick = async () => {
+  autoFillBtn.disabled = true;
+  autoFillBtn.textContent = "Loading...";
+
+  // Get names already present (case-insensitive)
+  const existingNames = new Set(characters.map(c => c.name.toLowerCase()));
+
+  // Filter out names already present
+  const availableTitles = ALL_AUTOFILL.filter(
+    name => !existingNames.has(name.toLowerCase())
+  );
+
+  // Pick up to 12 random unique names from available
+  function pickRandom(arr, n) {
+    const shuffled = arr.slice().sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, n);
+  }
+  const allTitles = pickRandom(availableTitles, 12);
+
+  // Helper to get image for a Wikipedia page
+  async function fetchWikiImage(title) {
+    const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=200&origin=*`;
+    try {
       const resp = await fetch(url);
       const data = await resp.json();
       const pages = data.query.pages;
@@ -442,35 +484,29 @@
           return pages[key].thumbnail.source;
         }
       }
-      return '';
-    }
+    } catch {}
+    return '';
+  }
 
-    // Get 6 fruits and 6 objects
-    let fruitTitles = [];
-    let objectTitles = [];
-    try {
-      fruitTitles = await fetchRandomWikiTitles('Culinary_fruits', 6);
-      objectTitles = await fetchRandomWikiTitles('Household_items', 6);
-    } catch (e) {
-      alert("Failed to fetch from Wikipedia. Try again.");
-      autoFillBtn.disabled = false;
-      autoFillBtn.textContent = "Auto Fill Random Fruits/Objects";
-      return;
-    }
-    const allTitles = [...fruitTitles, ...objectTitles];
-    // For each, get image and add as character
-    for (const title of allTitles) {
-      let img = '';
+  // (Optional: Add your SQUID_GAME_IMAGES mapping here if you want to use Fandom images for those characters)
+
+  for (const title of allTitles) {
+    let img = '';
+    // If you have SQUID_GAME_IMAGES mapping, use it here:
+    // if (SQUID_GAME_IMAGES[title]) {
+    //   img = SQUID_GAME_IMAGES[title];
+    // } else {
       try {
         img = await fetchWikiImage(title);
       } catch {}
-      characters.push({ name: title, img });
-    }
-    renderCharacterGrid();
-    checkStartButton();
-    autoFillBtn.disabled = false;
-    autoFillBtn.textContent = "Auto Fill Random Fruits/Objects";
-  };
+    // }
+    characters.push({ name: title, img });
+  }
+  renderCharacterGrid();
+  checkStartButton();
+  autoFillBtn.disabled = false;
+  autoFillBtn.textContent = "Auto Fill";
+};
 
   // Data storage
   let characters = [];
